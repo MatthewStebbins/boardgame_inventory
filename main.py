@@ -234,16 +234,73 @@ class BoardGameApp:
     def list_games(self):
         def list_games_thread():
             games = list_games()
+            if not games:
+                messagebox.showinfo("No Games", "No games available.")
+                return
+
+            # Create a frame for listing games
             list_win = tk.Frame(self.root, borderwidth=2, relief="solid")
             list_win.place(relx=0.5, rely=0.5, anchor="center")  # Center the window in the main application
-            tk.Label(list_win, text="Game List", pady=10).pack()
-            text = tk.Text(list_win, wrap="word", width=80, height=20)
-            text.pack(padx=10, pady=10)
+
+            tk.Label(list_win, text="Game List", font=("Arial", 12, "bold"), pady=10).pack()
+
+            # Create subframes for layout
+            left_frame = tk.Frame(list_win, borderwidth=2, relief="solid")
+            left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
+
+            right_frame = tk.Frame(list_win, borderwidth=2, relief="solid")
+            right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            # Listbox for game selection
+            tk.Label(left_frame, text="Select a game:", font=("Arial", 10)).pack(pady=5)
+            listbox = tk.Listbox(left_frame, width=30, height=15)
             for game in games:
                 name, barcode, bookcase, shelf, loaned_to = game
                 location = f"{bookcase}, Shelf {shelf}" if not loaned_to else f"Loaned to {loaned_to}"
-                text.insert(tk.END, f"{name} (Barcode: {barcode}) — Location: {location}\n")
-            text.config(state=tk.DISABLED)
+                listbox.insert(tk.END, f"{name} (Barcode: {barcode})")
+            listbox.pack(padx=10, pady=10)
+
+            # Frame for displaying game details
+            tk.Label(right_frame, text="Game Details", font=("Arial", 12, "bold")).pack(pady=5)
+
+            # Labels for game details
+            title_label = tk.Label(right_frame, text="Title: ", anchor="w")
+            title_label.pack(fill=tk.X, padx=5, pady=2)
+
+            barcode_label = tk.Label(right_frame, text="Barcode: ", anchor="w")
+            barcode_label.pack(fill=tk.X, padx=5, pady=2)
+
+            description_label = tk.Label(right_frame, text="Description: ", anchor="w")
+            description_label.pack(fill=tk.X, padx=5, pady=2)
+
+            location_label = tk.Label(right_frame, text="Location: ", anchor="w")
+            location_label.pack(fill=tk.X, padx=5, pady=2)
+
+            image_label = tk.Label(right_frame, text="Image: ", anchor="w")
+            image_label.pack(fill=tk.X, padx=5, pady=2)
+
+            def show_details(event):
+                selected_index = listbox.curselection()
+                if selected_index:
+                    selected_game = games[selected_index[0]]
+                    name, barcode, bookcase, shelf, loaned_to = selected_game
+                    location = f"{bookcase}, Shelf {shelf}" if not loaned_to else f"Loaned to {loaned_to}"
+
+                    # Fetch additional details (e.g., description, image) from the API
+                    data = lookup_barcode(barcode)
+                    description = data.get("description", "No description available.") if data else "No description available."
+                    image_url = data.get("images", ["No image available."])[0] if data else "No image available."
+
+                    # Update labels with game details
+                    title_label.config(text=f"Title: {name}")
+                    barcode_label.config(text=f"Barcode: {barcode}")
+                    description_label.config(text=f"Description: {description}")
+                    location_label.config(text=f"Location: {location}")
+                    image_label.config(text=f"Image: {image_url}")
+
+            # Bind selection event to the Listbox
+            listbox.bind("<<ListboxSelect>>", show_details)
+
             tk.Button(list_win, text="Close", command=list_win.destroy).pack(pady=5)
 
         threading.Thread(target=list_games_thread).start()
@@ -251,6 +308,6 @@ class BoardGameApp:
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Board Game Tracker")
-    root.wm_minsize(width=800, height=600)  # Set minimum window size
+    root.wm_minsize(width=1200, height=700)  # Set minimum window size
     app = BoardGameApp(root)
     root.mainloop()
