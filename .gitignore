@@ -1,0 +1,20 @@
+# Ignore SQLite database file
+games.db
+
+# Ignore configuration file
+config.py
+
+# Ignore Python cache files
+__pycache__/
+
+# Ignore virtual environment folders
+env/
+venv/
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp
+*.bak
+*.swp
