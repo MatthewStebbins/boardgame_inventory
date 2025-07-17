@@ -22,11 +22,127 @@ class BoardGameApp:
         inner_frame.pack()
         # Add buttons to the horizontal frame, centered
         tk.Button(inner_frame, text="Add Game by Barcode", width=20, command=self.add_game).pack(side=tk.LEFT, padx=5)
+        tk.Button(inner_frame, text="Bulk Upload", width=20, command=self.bulk_upload).pack(side=tk.LEFT, padx=5)
         tk.Button(inner_frame, text="Loan Game", width=20, command=self.loan_game).pack(side=tk.LEFT, padx=5)
         tk.Button(inner_frame, text="Return Game", width=20, command=self.return_game).pack(side=tk.LEFT, padx=5)
         tk.Button(inner_frame, text="List Games", width=20, command=self.list_games).pack(side=tk.LEFT, padx=5)
         tk.Button(inner_frame, text="Delete Game", width=20, command=self.delete_game).pack(side=tk.LEFT, padx=5)
         tk.Button(inner_frame, text="Exit", width=20, command=self.root.quit).pack(side=tk.LEFT, padx=5)
+    def bulk_upload(self):
+        def bulk_upload_thread():
+            if self.current_frame:
+                self.current_frame.destroy()
+            bulk_frame = tk.Frame(self.root, borderwidth=2, relief="solid")
+            bulk_frame.place(relx=0.5, rely=0.5, anchor="center")
+            self.current_frame = bulk_frame
+            tk.Label(bulk_frame, text="Bulk Upload Games", font=("Arial", 12, "bold"), pady=10).pack()
+            tk.Label(bulk_frame, text="Scan Location Barcode (xx-xx):").pack()
+            location_barcode_entry = tk.Entry(bulk_frame, width=30)
+            location_barcode_entry.pack(pady=5)
+            tk.Label(bulk_frame, text="Bookcase:").pack()
+            bookcase_entry = tk.Entry(bulk_frame, width=30)
+            bookcase_entry.pack(pady=5)
+            tk.Label(bulk_frame, text="Shelf:").pack()
+            shelf_entry = tk.Entry(bulk_frame, width=30)
+            shelf_entry.pack(pady=5)
+
+            def on_location_barcode_change(event):
+                loc_barcode = location_barcode_entry.get()
+                if '-' in loc_barcode:
+                    parts = loc_barcode.split('-')
+                    if len(parts) == 2:
+                        bookcase_val = parts[0].strip()
+                        shelf_val = parts[1].strip()
+                        if bookcase_val and shelf_val:
+                            bookcase_entry.delete(0, tk.END)
+                            bookcase_entry.insert(0, bookcase_val)
+                            shelf_entry.delete(0, tk.END)
+                            shelf_entry.insert(0, shelf_val)
+            def on_location_barcode_focus_out(event):
+                loc_barcode = location_barcode_entry.get()
+                if not loc_barcode:
+                    return
+                if '-' not in loc_barcode or len(loc_barcode.split('-')) != 2:
+                    messagebox.showerror("Error", "Invalid location barcode format. Use xx-xx.")
+                    return
+                parts = loc_barcode.split('-')
+                bookcase_val = parts[0].strip()
+                shelf_val = parts[1].strip()
+                if not (bookcase_val and shelf_val):
+                    messagebox.showerror("Error", "Invalid location barcode format. Use xx-xx.")
+            location_barcode_entry.bind('<KeyRelease>', on_location_barcode_change)
+            location_barcode_entry.bind('<FocusOut>', on_location_barcode_focus_out)
+
+            # List to hold scanned barcodes
+            scanned_barcodes = []
+            scanned_listbox = tk.Listbox(bulk_frame, width=50, height=10)
+            scanned_listbox.pack(pady=10)
+            tk.Label(bulk_frame, text="Scan each game barcode below:").pack()
+
+            barcode_entry = tk.Entry(bulk_frame, width=30)
+            barcode_entry.pack(pady=5)
+
+            def process_barcode(barcode):
+                barcode = barcode.strip()
+                if not barcode:
+                    return
+                if barcode in scanned_barcodes:
+                    return
+                scanned_barcodes.append(barcode)
+                scanned_listbox.insert(tk.END, barcode)
+
+            def on_barcode_entry(event=None):
+                barcode = barcode_entry.get()
+                process_barcode(barcode)
+                barcode_entry.delete(0, tk.END)
+
+            barcode_entry.bind('<Return>', on_barcode_entry)
+            barcode_entry.focus_set()
+
+            def scan_barcode():
+                barcode = simpledialog.askstring("Scan Barcode", "Scan or enter the game barcode:")
+                if barcode:
+                    process_barcode(barcode)
+
+            tk.Button(bulk_frame, text="Scan Barcode", command=scan_barcode).pack(pady=2)
+
+            def finish_bulk_upload():
+                bookcase = bookcase_entry.get().strip()
+                shelf = shelf_entry.get().strip()
+                if not (bookcase and shelf):
+                    messagebox.showerror("Error", "Bookcase and Shelf are required.")
+                    return
+                if not scanned_barcodes:
+                    messagebox.showerror("Error", "No barcodes scanned.")
+                    return
+                from db import get_game_by_barcode
+                added = []
+                skipped = []
+                for barcode in scanned_barcodes:
+                    db_game = get_game_by_barcode(barcode)
+                    if db_game:
+                        name = db_game[0]
+                        description = db_game[5]
+                        image_url = db_game[6]
+                    else:
+                        data = lookup_barcode(barcode)
+                        if not data:
+                            skipped.append(barcode)
+                            continue
+                        name = data.get('title', 'Unknown Title')
+                        description = data.get('description', None)
+                        image_url = data.get('images', [None])[0]
+                    add_game(name, barcode, bookcase, shelf, description, image_url)
+                    added.append(barcode)
+                summary = f"Added {len(added)} games."
+                if skipped:
+                    summary += f"\nSkipped {len(skipped)} (no data found):\n" + ", ".join(skipped)
+                messagebox.showinfo("Bulk Upload Complete", summary)
+                bulk_frame.destroy()
+
+            tk.Button(bulk_frame, text="Done", command=finish_bulk_upload).pack(pady=10)
+            tk.Button(bulk_frame, text="Cancel", command=bulk_frame.destroy).pack(pady=5)
+        threading.Thread(target=bulk_upload_thread).start()
 
     def add_game(self):
         def add_game_thread():
