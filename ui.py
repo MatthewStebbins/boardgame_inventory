@@ -1,13 +1,20 @@
 import tkinter as tk
-from tkinter import messagebox, simpledialog
-from db import init_db, add_game, loan_game, return_game, list_games, delete_game
-from api import lookup_barcode
+from tkinter import messagebox, simpledialog, filedialog
 import threading
 import os
+from db import init_db, add_game, loan_game, return_game, list_games, delete_game, get_game_by_barcode, list_loaned_games, update_game_location
+from api import lookup_barcode
+from util import validate_location_barcode, update_entry, show_error, show_info
 
 class BoardGameApp:
+    """
+    Main application class for the Board Game Inventory Tracker GUI.
+    Handles all user interactions and database operations.
+    """
     def bulk_upload(self):
+        """Open the bulk upload dialog for adding multiple games."""
         def bulk_upload_thread():
+            """Threaded function for bulk upload dialog."""
             if self.current_frame:
                 self.current_frame.destroy()
             bulk_frame = tk.Frame(self.root, borderwidth=2, relief="groove", bg="#f7f7fa")
@@ -27,29 +34,16 @@ class BoardGameApp:
             shelf_entry.grid(row=2, column=1, pady=4, padx=4)
 
             def on_location_barcode_change(event):
+                """Update bookcase/shelf fields when location barcode changes."""
                 loc_barcode = location_barcode_entry.get()
-                if '-' in loc_barcode:
-                    parts = loc_barcode.split('-')
-                    if len(parts) == 2:
-                        bookcase_val = parts[0].strip()
-                        shelf_val = parts[1].strip()
-                        if bookcase_val and shelf_val:
-                            bookcase_entry.delete(0, tk.END)
-                            bookcase_entry.insert(0, bookcase_val)
-                            shelf_entry.delete(0, tk.END)
-                            shelf_entry.insert(0, shelf_val)
+                bookcase_val, shelf_val = validate_location_barcode(loc_barcode)
+                if bookcase_val and shelf_val:
+                    update_entry(bookcase_entry, bookcase_val)
+                    update_entry(shelf_entry, shelf_val)
             def on_location_barcode_focus_out(event):
+                """Validate location barcode on focus out."""
                 loc_barcode = location_barcode_entry.get()
-                if not loc_barcode:
-                    return
-                if '-' not in loc_barcode or len(loc_barcode.split('-')) != 2:
-                    messagebox.showerror("Error", "Invalid location barcode format. Use xx-xx.")
-                    return
-                parts = loc_barcode.split('-')
-                bookcase_val = parts[0].strip()
-                shelf_val = parts[1].strip()
-                if not (bookcase_val and shelf_val):
-                    messagebox.showerror("Error", "Invalid location barcode format. Use xx-xx.")
+                validate_location_barcode(loc_barcode)
             location_barcode_entry.bind('<KeyRelease>', on_location_barcode_change)
             location_barcode_entry.bind('<FocusOut>', on_location_barcode_focus_out)
 
@@ -63,9 +57,7 @@ class BoardGameApp:
 
             def process_barcode(barcode):
                 barcode = barcode.strip()
-                if not barcode:
-                    return
-                if barcode in scanned_barcodes:
+                if not barcode or barcode in scanned_barcodes:
                     return
                 scanned_barcodes.append(barcode)
                 scanned_listbox.insert(tk.END, barcode)
@@ -86,14 +78,15 @@ class BoardGameApp:
             scan_btn = tk.Button(bulk_frame, text="Scan Barcode", command=scan_barcode, font=("Segoe UI", 10), bg="#0078d7", fg="#fff", activebackground="#005fa3", relief="flat", padx=8, pady=4)
             scan_btn.pack(pady=2)
 
+            from util import show_error, show_info
             def finish_bulk_upload():
                 bookcase = bookcase_entry.get().strip()
                 shelf = shelf_entry.get().strip()
                 if not (bookcase and shelf):
-                    messagebox.showerror("Error", "Bookcase and Shelf are required.")
+                    show_error("Error", "Bookcase and Shelf are required.")
                     return
                 if not scanned_barcodes:
-                    messagebox.showerror("Error", "No barcodes scanned.")
+                    show_error("Error", "No barcodes scanned.")
                     return
                 from db import get_game_by_barcode
                 added = []
@@ -117,7 +110,7 @@ class BoardGameApp:
                 summary = f"Added {len(added)} games."
                 if skipped:
                     summary += f"\nSkipped {len(skipped)} (no data found):\n" + ", ".join(skipped)
-                messagebox.showinfo("Bulk Upload Complete", summary)
+                show_info("Bulk Upload Complete", summary)
                 bulk_frame.destroy()
 
             btns = tk.Frame(bulk_frame, bg="#f7f7fa")
@@ -126,6 +119,7 @@ class BoardGameApp:
             tk.Button(btns, text="Cancel", command=bulk_frame.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=10, pady=6).pack(side=tk.LEFT, padx=8)
         threading.Thread(target=bulk_upload_thread).start()
     def __init__(self, root):
+        """Initialize the main application window and database."""
         self.root = root
         self.root.title("Board Game Tracker")
         self.current_frame = None  # Ensure current_frame is always initialized
@@ -135,6 +129,7 @@ class BoardGameApp:
         threading.Thread(target=init_db).start()  # Initialize the database in a separate thread
 
     def build_gui(self):
+        """Build the main GUI layout and buttons."""
         # Import styles and widgets
         from styles import PRIMARY, ACCENT, BG, CARD, DANGER, TEXT, BTN_TEXT, BORDER, RoundedButton
 
@@ -179,6 +174,7 @@ class BoardGameApp:
         self.content_frame.pack(fill=tk.BOTH, expand=True)
 
     def export_games(self):
+        """Open the export dialog for saving games to CSV or Excel."""
         import pandas as pd
         from tkinter import filedialog
         if self.current_frame:
@@ -219,6 +215,7 @@ class BoardGameApp:
         tk.Button(btns, text="Cancel", command=export_frame.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=10, pady=6).pack(side=tk.LEFT, padx=8)
 
     def import_games(self):
+        """Open the import dialog for loading games from CSV or Excel."""
         import pandas as pd
         from tkinter import filedialog
         if self.current_frame:
@@ -289,6 +286,7 @@ class BoardGameApp:
         tk.Button(btns, text="Import from Excel", command=lambda: do_import("excel"), font=("Segoe UI", 10, "bold"), bg="#0078d7", fg="#fff", activebackground="#005fa3", relief="flat", padx=10, pady=6).pack(side=tk.LEFT, padx=8)
         tk.Button(btns, text="Cancel", command=import_frame.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=10, pady=6).pack(side=tk.LEFT, padx=8)
     def list_games(self):
+        """Open the dialog to list all games in the inventory."""
         def list_games_thread():
             if self.current_frame:
                 self.current_frame.destroy()
@@ -425,6 +423,7 @@ class BoardGameApp:
         threading.Thread(target=list_games_thread).start()
 
     def add_game(self):
+        """Open the dialog to add a new game by barcode."""
         def add_game_thread():
             if self.current_frame:
                 self.current_frame.destroy()
@@ -447,30 +446,16 @@ class BoardGameApp:
             shelf_entry = tk.Entry(form, width=24, font=("Segoe UI", 10))
             shelf_entry.grid(row=3, column=1, pady=4, padx=4)
 
+            from util import validate_location_barcode, update_entry, show_error, show_info
             def on_location_barcode_change(event):
                 loc_barcode = location_barcode_entry.get()
-                if '-' in loc_barcode:
-                    parts = loc_barcode.split('-')
-                    if len(parts) == 2:
-                        bookcase_val = parts[0].strip()
-                        shelf_val = parts[1].strip()
-                        if bookcase_val and shelf_val:
-                            bookcase_entry.delete(0, tk.END)
-                            bookcase_entry.insert(0, bookcase_val)
-                            shelf_entry.delete(0, tk.END)
-                            shelf_entry.insert(0, shelf_val)
+                bookcase_val, shelf_val = validate_location_barcode(loc_barcode)
+                if bookcase_val and shelf_val:
+                    update_entry(bookcase_entry, bookcase_val)
+                    update_entry(shelf_entry, shelf_val)
             def on_location_barcode_focus_out(event):
                 loc_barcode = location_barcode_entry.get()
-                if not loc_barcode:
-                    return
-                if '-' not in loc_barcode or len(loc_barcode.split('-')) != 2:
-                    messagebox.showerror("Error", "Invalid location barcode format. Use xx-xx.")
-                    return
-                parts = loc_barcode.split('-')
-                bookcase_val = parts[0].strip()
-                shelf_val = parts[1].strip()
-                if not (bookcase_val and shelf_val):
-                    messagebox.showerror("Error", "Invalid location barcode format. Use xx-xx.")
+                validate_location_barcode(loc_barcode)
             location_barcode_entry.bind('<KeyRelease>', on_location_barcode_change)
             location_barcode_entry.bind('<FocusOut>', on_location_barcode_focus_out)
             from db import get_game_by_barcode
@@ -479,7 +464,7 @@ class BoardGameApp:
                 bookcase = bookcase_entry.get()
                 shelf = shelf_entry.get()
                 if not barcode:
-                    messagebox.showerror("Error", "Barcode is required.")
+                    show_error("Error", "Barcode is required.")
                     return
                 db_game = get_game_by_barcode(barcode)
                 if db_game:
@@ -489,17 +474,17 @@ class BoardGameApp:
                 else:
                     data = lookup_barcode(barcode)
                     if not data:
-                        messagebox.showerror("Error", "No data found for that barcode.")
+                        show_error("Error", "No data found for that barcode.")
                         return
                     name = data.get('title', 'Unknown Title')
                     description = data.get('description', None)
-                images = data.get('images')
-                if images and isinstance(images, list):
-                    image_url = images[0]
-                else:
-                    image_url = None
+                    images = data.get('images')
+                    if images and isinstance(images, list):
+                        image_url = images[0]
+                    else:
+                        image_url = None
                 add_game(name, barcode, bookcase, shelf, description, image_url)
-                messagebox.showinfo("Success", f"Game '{name}' added.")
+                show_info("Success", f"Game '{name}' added.")
                 add_game_frame.destroy()
 
             btns = tk.Frame(add_game_frame, bg="#f7f7fa")
@@ -509,6 +494,7 @@ class BoardGameApp:
         threading.Thread(target=add_game_thread).start()
 
     def delete_game(self):
+        """Open the dialog to delete a game from the inventory."""
         def delete_game_thread():
             if self.current_frame:
                 self.current_frame.destroy()
@@ -552,6 +538,7 @@ class BoardGameApp:
         threading.Thread(target=delete_game_thread).start()
 
     def loan_game(self):
+        """Open the dialog to loan a game to someone."""
         def loan_game_thread():
             if self.current_frame:
                 self.current_frame.destroy()
@@ -607,6 +594,7 @@ class BoardGameApp:
         threading.Thread(target=loan_game_thread).start()
 
     def return_game(self):
+        """Open the dialog to mark a game as returned."""
         def return_game_thread():
             if self.current_frame:
                 self.current_frame.destroy()
