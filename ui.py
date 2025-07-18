@@ -461,7 +461,11 @@ class BoardGameApp:
                             image_loaded = False
                     if not image_loaded:
                         data = lookup_barcode(barcode)
-                        img_url_api = data.get("images", [None])[0] if data else None
+                    images = data.get("images") if data else None
+                    if images and isinstance(images, list):
+                        img_url_api = images[0]
+                    else:
+                        img_url_api = None
                         desc = data.get("description", desc) if data else desc
                         if img_url_api:
                             try:
@@ -561,7 +565,11 @@ class BoardGameApp:
                         return
                     name = data.get('title', 'Unknown Title')
                     description = data.get('description', None)
-                    image_url = data.get('images', [None])[0]
+                images = data.get('images')
+                if images and isinstance(images, list):
+                    image_url = images[0]
+                else:
+                    image_url = None
                 add_game(name, barcode, bookcase, shelf, description, image_url)
                 messagebox.showinfo("Success", f"Game '{name}' added.")
                 add_game_frame.destroy()
@@ -624,8 +632,9 @@ class BoardGameApp:
             games = list_games()
             available_games = [game for game in games if not game[4]]
             if not available_games:
-                messagebox.showinfo("No Games", "No games available to loan.")
-                loan_game_frame.destroy()
+                tk.Label(loan_game_frame, text="No games to loan.", font=("Segoe UI", 12), bg="#f7f7fa", fg="#E57373").pack(pady=24)
+                close_btn = tk.Button(loan_game_frame, text="Close", command=loan_game_frame.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=8, pady=4)
+                close_btn.pack(pady=(0, 12), side=tk.BOTTOM)
                 return
             listbox = tk.Listbox(loan_game_frame, width=40, height=12, font=("Segoe UI", 10), bg="#fff", relief="solid", bd=1)
             for game in available_games:
@@ -678,8 +687,9 @@ class BoardGameApp:
             from db import list_loaned_games, update_game_location
             games = list_loaned_games()
             if not games:
-                messagebox.showinfo("No Games", "No games are currently loaned out.")
-                return_game_frame.destroy()
+                tk.Label(return_game_frame, text="No games  Loaned out.", font=("Segoe UI", 12), bg="#f7f7fa", fg="#E57373").pack(pady=24)
+                close_btn = tk.Button(return_game_frame, text="Close", command=return_game_frame.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=8, pady=4)
+                close_btn.pack(pady=(0, 12), side=tk.BOTTOM)
                 return
             listbox = tk.Listbox(return_game_frame, width=40, height=12, font=("Segoe UI", 10), bg="#fff", relief="solid", bd=1)
             for game in games:
