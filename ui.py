@@ -145,58 +145,94 @@ class BoardGameApp:
         BTN_TEXT = "#fff"
         BORDER = "#E0E4EA"
 
+
+
+        # --- RoundedButton class ---
+        class RoundedButton(tk.Canvas):
+            def __init__(self, master=None, text:str="", radius=18, btnforeground="#fff", btnbackground=PRIMARY, clicked=None, font=("Segoe UI", 11, "bold"), *args, **kwargs):
+                super().__init__(master, *args, **kwargs)
+                self.config(bg=self.master["bg"], highlightthickness=0, bd=0)
+                self.btnbackground = btnbackground
+                self.clicked = clicked
+                self.radius = radius
+                self.rect = self.round_rectangle(0, 0, 0, 0, tags="button", radius=radius, fill=btnbackground)
+                self.text = self.create_text(0, 0, text=text, tags="button", fill=btnforeground, font=font, justify="center")
+                self.tag_bind("button", "<ButtonPress>", self.border)
+                self.tag_bind("button", "<ButtonRelease>", self.border)
+                self.bind("<Configure>", self.resize)
+                text_rect = self.bbox(self.text)
+                if int(self["width"]) < text_rect[2]-text_rect[0]:
+                    self["width"] = (text_rect[2]-text_rect[0]) + 18
+                if int(self["height"]) < text_rect[3]-text_rect[1]:
+                    self["height"] = (text_rect[3]-text_rect[1]) + 18
+            def round_rectangle(self, x1, y1, x2, y2, radius=18, update=False, **kwargs):
+                points = [x1+radius, y1,
+                        x1+radius, y1,
+                        x2-radius, y1,
+                        x2-radius, y1,
+                        x2, y1,
+                        x2, y1+radius,
+                        x2, y1+radius,
+                        x2, y2-radius,
+                        x2, y2-radius,
+                        x2, y2,
+                        x2-radius, y2,
+                        x2-radius, y2,
+                        x1+radius, y2,
+                        x1+radius, y2,
+                        x1, y2,
+                        x1, y2-radius,
+                        x1, y2-radius,
+                        x1, y1+radius,
+                        x1, y1+radius,
+                        x1, y1]
+                if not update:
+                    return self.create_polygon(points, **kwargs, smooth=True)
+                else:
+                    self.coords(self.rect, points)
+            def resize(self, event):
+                text_bbox = self.bbox(self.text)
+                radius = min(self.radius, event.width//2, event.height//2)
+                width, height = event.width, event.height
+                if event.width < text_bbox[2]-text_bbox[0]:
+                    width = text_bbox[2]-text_bbox[0] + 30
+                if event.height < text_bbox[3]-text_bbox[1]:
+                    height = text_bbox[3]-text_bbox[1] + 30
+                self.round_rectangle(5, 5, width-5, height-5, radius, update=True)
+                bbox = self.bbox(self.rect)
+                x = ((bbox[2]-bbox[0])/2) - ((text_bbox[2]-text_bbox[0])/2)
+                y = ((bbox[3]-bbox[1])/2) - ((text_bbox[3]-text_bbox[1])/2)
+                self.moveto(self.text, x, y)
+            def border(self, event):
+                if event.type == "4":
+                    self.itemconfig(self.rect, fill="#d2d6d3")
+                    if self.clicked is not None:
+                        self.clicked()
+                else:
+                    self.itemconfig(self.rect, fill=self.btnbackground)
+
+
         self.button_frame = tk.Frame(self.root, bg=BG)
         self.button_frame.pack(pady=18, fill=tk.X)
         self.button_frame.grid_columnconfigure(0, weight=1)
         inner_frame = tk.Frame(self.button_frame, bg=BG)
         inner_frame.pack()
-        btn_style = {
-            'font': ("Segoe UI", 11, "bold"),
-            'bg': PRIMARY,
-            'fg': BTN_TEXT,
-            'activebackground': ACCENT,
-            'activeforeground': BTN_TEXT,
-            'relief': "flat",
-            'padx': 12,
-            'pady': 10,
-            'bd': 0,
-            'highlightthickness': 0,
-        }
         btns = [
-            ("Add Game by Barcode", self.add_game),
-            ("Bulk Upload", self.bulk_upload),
-            ("Loan Game", self.loan_game),
-            ("Return Game", self.return_game),
-            ("List Games", self.list_games),
-            ("Delete Game", self.delete_game),
-            ("Export CSV/Excel", self.export_games),
-            ("Import CSV/Excel", self.import_games),
-            ("Exit", self.root.quit)
+            ("Add Game by Barcode", self.add_game, PRIMARY),
+            ("Bulk Upload", self.bulk_upload, PRIMARY),
+            ("Loan Game", self.loan_game, PRIMARY),
+            ("Return Game", self.return_game, PRIMARY),
+            ("List Games", self.list_games, PRIMARY),
+            ("Delete Game", self.delete_game, DANGER),
+            ("Export CSV/Excel", self.export_games, ACCENT),
+            ("Import CSV/Excel", self.import_games, ACCENT),
+            ("Exit", self.root.quit, BORDER)
         ]
-        for text, cmd in btns:
-            color = btn_style.copy()
-            if text == "Delete Game":
-                color['bg'] = DANGER
-                color['activebackground'] = "#d32f2f"
-            if text == "Exit":
-                color['bg'] = BORDER
-                color['fg'] = TEXT
-                color['activebackground'] = ACCENT
-            if text.startswith("Export"):
-                color['bg'] = ACCENT
-                color['fg'] = TEXT
-                color['activebackground'] = PRIMARY
-            if text.startswith("Import"):
-                color['bg'] = ACCENT
-                color['fg'] = TEXT
-                color['activebackground'] = PRIMARY
-            btn = tk.Button(inner_frame, text=text, command=cmd, width=18, **color)
-            btn.pack(side=tk.LEFT, padx=7)
-            # Add hover effect
-            def on_enter(e, b=btn): b.config(bg=ACCENT, fg=TEXT)
-            def on_leave(e, b=btn): b.config(bg=color['bg'], fg=color['fg'])
-            btn.bind("<Enter>", on_enter)
-            btn.bind("<Leave>", on_leave)
+        for text, cmd, color in btns:
+            def make_callback(c=cmd):
+                return lambda: c()
+            btn = RoundedButton(inner_frame, text=text, btnbackground=color, btnforeground=BTN_TEXT if color != BORDER else TEXT, clicked=make_callback(), width=150, height=44)
+            btn.pack(side=tk.LEFT, padx=7, pady=2)
 
         # Content frame for dialogs
         self.content_frame = tk.Frame(self.root, bg=BG)
@@ -314,12 +350,133 @@ class BoardGameApp:
         tk.Button(btns, text="Cancel", command=import_frame.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=10, pady=6).pack(side=tk.LEFT, padx=8)
     def list_games(self):
         def list_games_thread():
+            if self.current_frame:
+                self.current_frame.destroy()
             games = list_games()
             if not games:
                 messagebox.showinfo("No Games", "No games available.")
                 return
-            list_win = tk.Toplevel(self.root)
-        threading.Thread(target=bulk_upload_thread).start()
+            list_win = tk.Frame(self.content_frame, borderwidth=2, relief="groove", bg="#f7f7fa")
+            list_win.pack(expand=True, fill=tk.BOTH, padx=30, pady=30)
+            self.current_frame = list_win
+            tk.Label(list_win, text="Game List", font=("Segoe UI", 16, "bold"), pady=16, bg="#f7f7fa").pack()
+
+            content_frame = tk.Frame(list_win, bg="#f7f7fa")
+            content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+            left_frame = tk.Frame(content_frame, borderwidth=1, relief="ridge", bg="#fff")
+            left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 16), pady=0)
+            right_frame = tk.Frame(content_frame, borderwidth=1, relief="ridge", bg="#fff")
+            right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+            tk.Label(left_frame, text="Select a game:", font=("Segoe UI", 11, "bold"), bg="#f7f7fa").pack(pady=(8, 4))
+            listbox_frame = tk.Frame(left_frame, bg="#f7f7fa")
+            listbox_frame.pack(padx=8, pady=(0, 8))
+            listbox = tk.Listbox(listbox_frame, width=32, height=18, font=("Segoe UI", 10), activestyle="dotbox", selectbackground="#0078d7", selectforeground="#fff")
+            scrollbar = tk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=listbox.yview)
+            listbox.config(yscrollcommand=scrollbar.set)
+            listbox.grid(row=0, column=0, sticky="nsew")
+            scrollbar.grid(row=0, column=1, sticky="ns")
+            listbox_frame.grid_rowconfigure(0, weight=1)
+            listbox_frame.grid_columnconfigure(0, weight=1)
+            for game in games:
+                name, barcode, bookcase, shelf, loaned_to, description, image_url = game
+                location = f"{bookcase}, Shelf {shelf}" if not loaned_to else f"Loaned to {loaned_to}"
+                listbox.insert(tk.END, f"{name} (Barcode: {barcode})")
+
+            def delete_selected_game():
+                selected_index = listbox.curselection()
+                if not selected_index:
+                    messagebox.showerror("Error", "No game selected.")
+                    return
+                selected_game = games[selected_index[0]]
+                confirm = messagebox.askyesno("Delete Game", f"Are you sure you want to delete '{selected_game[0]}'?")
+                if confirm:
+                    delete_game(selected_game[1])
+                    messagebox.showinfo("Success", f"Game '{selected_game[0]}' deleted.")
+                    list_win.destroy()
+                    self.current_frame = None
+                    self.list_games()  # Refresh the list
+
+            button_frame = tk.Frame(left_frame, bg="#f7f7fa")
+            button_frame.pack(pady=(0, 8))
+            from tkinter import ttk
+            ttk.Button(button_frame, text="Delete Selected Game", command=delete_selected_game, style='Rounded.TButton').pack(fill=tk.X, pady=2)
+
+            tk.Label(right_frame, text="Game Details", font=("Segoe UI", 13, "bold"), bg="#f7f7fa").pack(pady=(8, 4))
+            details_inner = tk.Frame(right_frame, bg="#f7f7fa")
+            details_inner.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+            title_label = tk.Label(details_inner, text="Title: ", anchor="w", font=("Segoe UI", 11), bg="#f7f7fa")
+            title_label.pack(fill=tk.X, padx=2, pady=2)
+            barcode_label = tk.Label(details_inner, text="Barcode: ", anchor="w", font=("Segoe UI", 10), bg="#f7f7fa")
+            barcode_label.pack(fill=tk.X, padx=2, pady=2)
+            description_label = tk.Label(details_inner, text="Description:", anchor="w", font=("Segoe UI", 10, "bold"), bg="#f7f7fa")
+            description_label.pack(fill=tk.X, padx=2, pady=(8, 2))
+            description_text = tk.Text(details_inner, wrap=tk.WORD, height=6, width=60, font=("Segoe UI", 10), bg="#f7f7fa", relief="solid", bd=1)
+            description_text.pack(fill=tk.X, padx=2, pady=2)
+            location_label = tk.Label(details_inner, text="Location: ", anchor="w", font=("Segoe UI", 10), bg="#f7f7fa")
+            location_label.pack(fill=tk.X, padx=2, pady=2)
+            image_canvas = tk.Canvas(details_inner, width=200, height=200, bg="#fff", bd=1, relief="solid", highlightthickness=0)
+            image_canvas.pack(padx=2, pady=8)
+
+            import requests
+            from PIL import Image, ImageTk
+            import io
+            def show_details(event):
+                selected_index = listbox.curselection()
+                if selected_index:
+                    selected_game = games[selected_index[0]]
+                    name, barcode, bookcase, shelf, loaned_to, description, image_url = selected_game
+                    location = f"{bookcase}, Shelf {shelf}" if not loaned_to else f"Loaned to {loaned_to}"
+                    desc = description if description else "No description available."
+                    img_url = image_url if image_url else None
+                    image_loaded = False
+                    image_canvas.delete("all")
+                    if img_url:
+                        try:
+                            response = requests.get(img_url)
+                            if response.status_code == 200:
+                                img_data = response.content
+                                pil_image = Image.open(io.BytesIO(img_data))
+                                pil_image = pil_image.resize((200, 200))
+                                image_obj = ImageTk.PhotoImage(pil_image)
+                                image_canvas.create_image(100, 100, image=image_obj)
+                                image_canvas.image = image_obj
+                                image_loaded = True
+                        except Exception:
+                            image_loaded = False
+                    if not image_loaded:
+                        data = lookup_barcode(barcode)
+                        img_url_api = data.get("images", [None])[0] if data else None
+                        desc = data.get("description", desc) if data else desc
+                        if img_url_api:
+                            try:
+                                response = requests.get(img_url_api)
+                                if response.status_code == 200:
+                                    img_data = response.content
+                                    pil_image = Image.open(io.BytesIO(img_data))
+                                    pil_image = pil_image.resize((200, 200))
+                                    image_obj = ImageTk.PhotoImage(pil_image)
+                                    image_canvas.create_image(100, 100, image=image_obj)
+                                    image_canvas.image = image_obj
+                                else:
+                                    image_canvas.create_text(100, 100, text="No image available.", font=("Segoe UI", 10))
+                            except Exception:
+                                image_canvas.create_text(100, 100, text="Image load error", font=("Segoe UI", 10))
+                        else:
+                            image_canvas.create_text(100, 100, text="No image available.", font=("Segoe UI", 10))
+                    title_label.config(text=f"Title: {name}")
+                    barcode_label.config(text=f"Barcode: {barcode}")
+                    description_text.config(state=tk.NORMAL)
+                    description_text.delete(1.0, tk.END)
+                    description_text.insert(tk.END, desc)
+                    description_text.config(state=tk.DISABLED)
+                    location_label.config(text=f"Location: {location}")
+            listbox.bind("<<ListboxSelect>>", show_details)
+
+            close_btn = tk.Button(list_win, text="Close", command=list_win.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=8, pady=4)
+            close_btn.pack(pady=(0, 12), side=tk.BOTTOM)
+        threading.Thread(target=list_games_thread).start()
 
     def add_game(self):
         def add_game_thread():
