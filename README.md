@@ -5,11 +5,14 @@ The **Board Game Inventory Tracker** is a Python application designed to help us
 
 ## Features
 - **Add Game**: Add a new game to the inventory using a barcode.
+- **Bulk Upload**: Add multiple games at once by scanning location and game barcodes.
 - **Loan Game**: Loan a game to someone and track who borrowed it.
 - **Return Game**: Mark a game as returned.
 - **List Games**: View all games in the inventory.
 - **Delete Game**: Remove a game from the inventory.
 - **Barcode Lookup**: Fetch game details using an external API.
+- **Export Games**: Export your game collection to CSV or Excel files.
+- **Import Games**: Import games from CSV or Excel files.
 
 ## Requirements
 - Python 3.7 or higher
@@ -44,14 +47,15 @@ The **Board Game Inventory Tracker** is a Python application designed to help us
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/MatthewStebbins/boardgame_inventory.git
    cd Boardgameinventory
    ```
 
 2. Set up a virtual environment (optional):
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   venv\Scripts\activate  # On Windows
+   # On Mac/Linux: source venv/bin/activate
    ```
 
 3. Install dependencies:
@@ -59,10 +63,16 @@ The **Board Game Inventory Tracker** is a Python application designed to help us
    pip install requests
    ```
 
-4. Create a config.py file with  APIyour key and URL:
+4. Create a config.py file with your API key and URL (if using BarcodeLookup API):
    ```python
    API_KEY = 'your_api_key_here'
    API_URL = 'https://api.barcodelookup.com/v3/products'
+   ```
+   Or, if using RapidAPI (default in code):
+   ```python
+   RAPIDAPI_KEY = 'your_rapidapi_key_here'
+   RAPIDAPI_HOST = 'barcodes1.p.rapidapi.com'
+   RAPIDAPI_URL = 'https://barcodes1.p.rapidapi.com/'
    ```
 
 ## Usage
@@ -72,16 +82,16 @@ python main.py
 ```
 
 ## File Structure
-- main.py: Contains the main application logic and GUI.
-- api.py: Handles barcode lookup using an external API.
-- db.py: Manages database operations.
+- main.py: Launches the application and GUI.
+- ui.py: Contains the BoardGameApp class and all GUI logic, including bulk upload, export/import features.
+- api.py: Handles barcode lookup using an external API (RapidAPI or BarcodeLookup).
+- db.py: Manages database operations (add, loan, return, delete, list, etc.).
+- styles.py: Custom styles and widgets for the UI.
 - config.py: Stores API configuration (excluded from version control).
 - games.db: SQLite database file (excluded from version control).
 - .gitignore: Specifies files to exclude from version control.
+- LICENSE: MIT License for the project.
 
 
-## Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/MatthewStebbins/boardgame_inventory.git
-   cd Boardgameinventory
+## License
+This project is licensed under the MIT License. See the LICENSE file for details.
