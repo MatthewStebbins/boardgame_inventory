@@ -135,82 +135,8 @@ class BoardGameApp:
         threading.Thread(target=init_db).start()  # Initialize the database in a separate thread
 
     def build_gui(self):
-        # Modern, neutral color palette
-        PRIMARY = "#4F6D7A"      # Button, accent
-        ACCENT = "#C0D6DF"      # Button hover, accent
-        BG = "#F7F9FB"          # Background
-        CARD = "#FFFFFF"        # Card/dialog background
-        DANGER = "#E57373"      # Delete/danger
-        TEXT = "#222"
-        BTN_TEXT = "#fff"
-        BORDER = "#E0E4EA"
-
-
-
-        # --- RoundedButton class ---
-        class RoundedButton(tk.Canvas):
-            def __init__(self, master=None, text:str="", radius=18, btnforeground="#fff", btnbackground=PRIMARY, clicked=None, font=("Segoe UI", 11, "bold"), *args, **kwargs):
-                super().__init__(master, *args, **kwargs)
-                self.config(bg=self.master["bg"], highlightthickness=0, bd=0)
-                self.btnbackground = btnbackground
-                self.clicked = clicked
-                self.radius = radius
-                self.rect = self.round_rectangle(0, 0, 0, 0, tags="button", radius=radius, fill=btnbackground)
-                self.text = self.create_text(0, 0, text=text, tags="button", fill=btnforeground, font=font, justify="center")
-                self.tag_bind("button", "<ButtonPress>", self.border)
-                self.tag_bind("button", "<ButtonRelease>", self.border)
-                self.bind("<Configure>", self.resize)
-                text_rect = self.bbox(self.text)
-                if int(self["width"]) < text_rect[2]-text_rect[0]:
-                    self["width"] = (text_rect[2]-text_rect[0]) + 18
-                if int(self["height"]) < text_rect[3]-text_rect[1]:
-                    self["height"] = (text_rect[3]-text_rect[1]) + 18
-            def round_rectangle(self, x1, y1, x2, y2, radius=18, update=False, **kwargs):
-                points = [x1+radius, y1,
-                        x1+radius, y1,
-                        x2-radius, y1,
-                        x2-radius, y1,
-                        x2, y1,
-                        x2, y1+radius,
-                        x2, y1+radius,
-                        x2, y2-radius,
-                        x2, y2-radius,
-                        x2, y2,
-                        x2-radius, y2,
-                        x2-radius, y2,
-                        x1+radius, y2,
-                        x1+radius, y2,
-                        x1, y2,
-                        x1, y2-radius,
-                        x1, y2-radius,
-                        x1, y1+radius,
-                        x1, y1+radius,
-                        x1, y1]
-                if not update:
-                    return self.create_polygon(points, **kwargs, smooth=True)
-                else:
-                    self.coords(self.rect, points)
-            def resize(self, event):
-                text_bbox = self.bbox(self.text)
-                radius = min(self.radius, event.width//2, event.height//2)
-                width, height = event.width, event.height
-                if event.width < text_bbox[2]-text_bbox[0]:
-                    width = text_bbox[2]-text_bbox[0] + 30
-                if event.height < text_bbox[3]-text_bbox[1]:
-                    height = text_bbox[3]-text_bbox[1] + 30
-                self.round_rectangle(5, 5, width-5, height-5, radius, update=True)
-                bbox = self.bbox(self.rect)
-                x = ((bbox[2]-bbox[0])/2) - ((text_bbox[2]-text_bbox[0])/2)
-                y = ((bbox[3]-bbox[1])/2) - ((text_bbox[3]-text_bbox[1])/2)
-                self.moveto(self.text, x, y)
-            def border(self, event):
-                if event.type == "4":
-                    self.itemconfig(self.rect, fill="#d2d6d3")
-                    if self.clicked is not None:
-                        self.clicked()
-                else:
-                    self.itemconfig(self.rect, fill=self.btnbackground)
-
+        # Import styles and widgets
+        from styles import PRIMARY, ACCENT, BG, CARD, DANGER, TEXT, BTN_TEXT, BORDER, RoundedButton
 
         self.button_frame = tk.Frame(self.root, bg=BG)
         self.button_frame.pack(pady=18, fill=tk.X)
@@ -367,14 +293,15 @@ class BoardGameApp:
             if self.current_frame:
                 self.current_frame.destroy()
             games = list_games()
-            if not games:
-                messagebox.showinfo("No Games", "No games available.")
-                return
             list_win = tk.Frame(self.content_frame, borderwidth=2, relief="groove", bg="#f7f7fa")
             list_win.pack(expand=True, fill=tk.BOTH, padx=30, pady=30)
             self.current_frame = list_win
             tk.Label(list_win, text="Game List", font=("Segoe UI", 16, "bold"), pady=16, bg="#f7f7fa").pack()
-
+            if not games:
+                tk.Label(list_win, text="No games available.", font=("Segoe UI", 12), bg="#f7f7fa", fg="#E57373").pack(pady=24)
+                close_btn = tk.Button(list_win, text="Close", command=list_win.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=8, pady=4)
+                close_btn.pack(pady=(0, 12), side=tk.BOTTOM)
+                return
             content_frame = tk.Frame(list_win, bg="#f7f7fa")
             content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
@@ -585,13 +512,15 @@ class BoardGameApp:
             if self.current_frame:
                 self.current_frame.destroy()
             games = list_games()
-            if not games:
-                messagebox.showinfo("No Games", "No games available to delete.")
-                return
             list_win = tk.Frame(self.root, borderwidth=2, relief="groove", bg="#f7f7fa")
             list_win.place(relx=0.5, rely=0.5, anchor="center")
             self.current_frame = list_win
             tk.Label(list_win, text="Delete Game", font=("Segoe UI", 15, "bold"), pady=12, bg="#f7f7fa").pack()
+            if not games:
+                tk.Label(list_win, text="No games available to delete.", font=("Segoe UI", 12), bg="#f7f7fa", fg="#E57373").pack(pady=24)
+                close_btn = tk.Button(list_win, text="Close", command=list_win.destroy, font=("Segoe UI", 10), bg="#e1e1e1", relief="flat", padx=8, pady=4)
+                close_btn.pack(pady=(0, 12), side=tk.BOTTOM)
+                return
             listbox = tk.Listbox(list_win, width=40, height=15, font=("Segoe UI", 10), bg="#fff", relief="solid", bd=1)
             for game in games:
                 name, barcode, bookcase, shelf, loaned_to, *_ = game
