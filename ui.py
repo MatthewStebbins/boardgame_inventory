@@ -216,7 +216,7 @@ class BoardGameApp:
         self.button_frame.pack(pady=18, fill=tk.X)
         self.button_frame.grid_columnconfigure(0, weight=1)
         inner_frame = tk.Frame(self.button_frame, bg=BG)
-        inner_frame.pack()
+        inner_frame.pack(fill=tk.X)
         btns = [
             ("Add Game by Barcode", self.add_game, PRIMARY),
             ("Bulk Upload", self.bulk_upload, PRIMARY),
@@ -228,11 +228,25 @@ class BoardGameApp:
             ("Import CSV/Excel", self.import_games, ACCENT),
             ("Exit", self.root.quit, BORDER)
         ]
-        for text, cmd, color in btns:
-            def make_callback(c=cmd):
-                return lambda: c()
-            btn = RoundedButton(inner_frame, text=text, btnbackground=color, btnforeground=BTN_TEXT if color != BORDER else TEXT, clicked=make_callback(), width=150, height=44)
-            btn.pack(side=tk.LEFT, padx=7, pady=2)
+        self.button_widgets = []
+        def make_callback(c):
+            return lambda: c()
+        for idx, (text, cmd, color) in enumerate(btns):
+            btn = RoundedButton(inner_frame, text=text, btnbackground=color, btnforeground=BTN_TEXT if color != BORDER else TEXT, clicked=make_callback(cmd), width=150, height=44)
+            btn.grid(row=0, column=idx, padx=7, pady=2, sticky="ew")
+            inner_frame.grid_columnconfigure(idx, weight=1)
+            self.button_widgets.append(btn)
+
+        def update_button_layout(event):
+            total_width = inner_frame.winfo_width()
+            btn_width = 164  # 150 + 2*7 padding
+            max_per_row = max(1, total_width // btn_width)
+            for i, btn in enumerate(self.button_widgets):
+                row = i // max_per_row
+                col = i % max_per_row
+                btn.grid(row=row, column=col, padx=7, pady=6, sticky="ew")
+                inner_frame.grid_columnconfigure(col, weight=1)
+        inner_frame.bind('<Configure>', update_button_layout)
 
         # Content frame for dialogs
         self.content_frame = tk.Frame(self.root, bg=BG)
